@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Khairul Amir Usahawan Hebat - MISI AR & SENTUH</title>
+  
+  <!-- MediaPipe Hands & Camera Utils -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --primary-blue: #00f0ff;
+      --neon-yellow: #ffee00;
+      --navy-bg: #0a0e27;
+      --card-bg: rgba(10, 20, 50, 0.88);
+      --red-chili: #ff2a4b;
+      --chili-green: #2ecc71;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #050814;
+      color: #fff;
+    }
+
+    /* 1. SUSUNAN LAPISAN Z-INDEX & RESPONSIVE CONTAINER */
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* LAPISAN 1: Video Kamera */
+    #webcam {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      z-index: 1;
+      display: block;
+    }
+
+    /* LAPISAN 2: Overlay Latar Belakang Tematik & Gradient */
+    .overlay-gradient {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(10,14,39,0.35) 0%, rgba(5,10,25,0.78) 100%);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* LAPISAN 3: Canvas Partikel & Hiasan Keusahawanan */
+    #particle-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* LAPISAN 4: UI & ELEMEN INTERAKTIF */
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 15px 20px;
+      pointer-events: none;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* HEADER & STATS */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 20, 50, 0.85);
+      padding: 10px 20px;
+      border-radius: 16px;
+      border: 2px solid var(--primary-blue);
+      box-shadow: 0 0 15px var(--primary-blue);
+      backdrop-filter: blur(8px);
+    }
+
+    .title-box h1 {
+      font-size: 1.5rem;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 10px var(--neon-yellow);
+      letter-spacing: 1px;
+    }
+
+    .title-box h2 {
+      font-size: 0.85rem;
+      color: var(--primary-blue);
+      text-shadow: 0 0 5px var(--primary-blue);
+    }
+
+    .status-badge {
+      background: rgba(0, 240, 255, 0.2);
+      border: 1px solid var(--primary-blue);
+      color: var(--primary-blue);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      box-shadow: 0 0 8px var(--primary-blue);
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 15px;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 8px rgba(255, 238, 0, 0.6);
+    }
+
+    .audio-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-icon {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid var(--primary-blue);
+      color: var(--primary-blue);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 8px var(--primary-blue);
+    }
+
+    .btn-icon.off {
+      opacity: 0.4;
+      border-color: #888;
+      color: #888;
+      box-shadow: none;
+    }
+
+    /* MASKOT KHAIRUL AMIR (SVG Vector) */
+    .mascot-container {
+      position: absolute;
+      bottom: 60px;
+      left: 15px;
+      width: 110px;
+      height: 150px;
+      z-index: 4;
+      pointer-events: none;
+      filter: drop-shadow(0 0 10px var(--primary-blue));
+    }
+
+    /* PANEL SOALAN HOLOGRAM */
+    .question-box {
+      background: var(--card-bg);
+      border: 2px solid var(--neon-yellow);
+      box-shadow: 0 0 20px rgba(255, 238, 0, 0.4);
+      border-radius: 16px;
+      padding: 16px 24px;
+      text-align: center;
+      max-width: 850px;
+      margin: 5px auto;
+      backdrop-filter: blur(8px);
+    }
+
+    .question-box h3 {
+      color: var(--primary-blue);
+      font-size: 1rem;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .question-box p {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #fff;
+      line-height: 1.35;
+    }
+
+    /* KAD JAWAPAN */
+    .answers-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      max-width: 1000px;
+      margin: 0 auto 10px auto;
+      width: 100%;
+    }
+
+    .card-answer {
+      background: var(--card-bg);
+      border: 2px solid var(--primary-blue);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .card-answer.aimed {
+      border-color: var(--neon-yellow);
+      box-shadow: 0 0 30px var(--neon-yellow), inset 0 0 15px rgba(255, 238, 0, 0.3);
+      transform: scale(1.03);
+    }
+
+    .card-answer .label-badge {
+      background: var(--primary-blue);
+      color: #000;
+      font-weight: bold;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      box-shadow: 0 0 8px var(--primary-blue);
+    }
+
+    .card-answer p {
+      font-size: 1.05rem;
+      line-height: 1.35;
+      color: #fff;
+      text-align: left;
+    }
+
+    /* FOOTER & KAWALAN MOD */
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 20, 50, 0.7);
+      padding: 8px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+    }
+
+    .instruction-text {
+      font-size: 0.9rem;
+      color: var(--neon-yellow);
+    }
+
+    .mode-toggle-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-mode {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid var(--primary-blue);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .btn-mode.active {
+      background: var(--primary-blue);
+      color: #000;
+      box-shadow: 0 0 12px var(--primary-blue);
+    }
+
+    /* SASARAN RETICLE & LASER */
+    #aim-reticle {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      border: 3px solid var(--neon-yellow);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 5;
+      transform: translate(-50%, -50%);
+      display: none;
+      box-shadow: 0 0 20px var(--neon-yellow);
+    }
+
+    #aim-reticle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: var(--red-chili);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 10px var(--red-chili);
+    }
+
+    #laser-beam {
+      position: absolute;
+      height: 4px;
+      background: linear-gradient(90deg, var(--neon-yellow), var(--red-chili));
+      box-shadow: 0 0 10px var(--neon-yellow);
+      z-index: 5;
+      pointer-events: none;
+      transform-origin: 0 50%;
+      display: none;
+    }
+
+    /* PANEL MODAL & DIALOG SEMAK */
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 10, 25, 0.88);
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-card {
+      background: var(--navy-bg);
+      border: 3px solid var(--primary-blue);
+      box-shadow: 0 0 35px var(--primary-blue);
+      border-radius: 24px;
+      padding: 30px;
+      text-align: center;
+      max-width: 620px;
+      width: 90%;
+    }
+
+    .modal-card h2 {
+      font-size: 2rem;
+      color: var(--neon-yellow);
+      margin-bottom: 12px;
+      text-shadow: 0 0 12px var(--neon-yellow);
+    }
+
+    .modal-card p {
+      font-size: 1.15rem;
+      margin-bottom: 18px;
+      line-height: 1.45;
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #00f0ff, #0077ff);
+      border: none;
+      color: #000;
+      font-weight: bold;
+      font-size: 1.15rem;
+      padding: 12px 26px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 20px var(--primary-blue);
+      margin: 6px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-action:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px var(--primary-blue);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app-container">
+    <!-- LAPISAN 1 -->
+    <video id="webcam" autoplay playsinline muted></video>
+
+    <!-- LAPISAN 2 -->
+    <div class="overlay-gradient"></div>
+
+    <!-- LAPISAN 3 -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- MASKOT KHAIRUL AMIR (Songkok, Baju Biru, Apron, Cermin Mata) -->
+    <div class="mascot-container">
+      <svg viewBox="0 0 100 140" width="100%" height="100%">
+        <!-- Badan / Baju Biru -->
+        <path d="M20,90 Q50,80 80,90 L85,140 L15,140 Z" fill="#0055ff"/>
+        <!-- Apron Gelap -->
+        <path d="M32,95 L68,95 L72,140 L28,140 Z" fill="#111827"/>
+        <text x="50" y="115" font-size="6" fill="#ffee00" text-anchor="middle" font-weight="bold">SAMBAL</text>
+        <text x="50" y="123" font-size="5" fill="#ffffff" text-anchor="middle">MALAYSIA</text>
+        <!-- Muka -->
+        <ellipse cx="50" cy="55" rx="22" ry="25" fill="#f1c27d"/>
+        <!-- Cermin Mata -->
+        <rect x="34" y="48" width="13" height="10" rx="2" fill="none" stroke="#000" stroke-width="2"/>
+        <rect x="53" y="48" width="13" height="10" rx="2" fill="none" stroke="#000" stroke-width="2"/>
+        <line x1="47" y1="53" x2="53" y2="53" stroke="#000" stroke-width="2"/>
+        <!-- Senyuman -->
+        <path d="M42,68 Q50,75 58,68" fill="none" stroke="#000" stroke-width="2"/>
+        <!-- Songkok Hitam -->
+        <path d="M28,38 L72,38 L70,18 L30,18 Z" fill="#000000"/>
+      </svg>
+    </div>
+
+    <!-- LAPISAN 5: SASARAN & LASER -->
+    <div id="aim-reticle"></div>
+    <div id="laser-beam"></div>
+
+    <!-- LAPISAN 4: UI & KONTROL -->
+    <div class="ui-layer">
+      <header class="interactive">
+        <div class="title-box">
+          <h1>KHAIRUL AMIR</h1>
+          <h2>USAHAWAN HEBAT — MISI AR</h2>
+        </div>
+
+        <div id="hand-status" class="status-badge">MOD SENTUH AKTIF</div>
+
+        <div class="stats-bar">
+          <div class="stat-item">🪙 <span id="coin-count">0</span></div>
+          <div class="stat-item">⭐ <span id="score-count">0</span></div>
+          <div class="stat-item">📌 <span id="progress-count">1/6</span></div>
+        </div>
+
+        <div class="audio-controls">
+          <button id="btn-music" class="btn-icon">🎵</button>
+          <button id="btn-sfx" class="btn-icon">🔊</button>
+        </div>
+      </header>
+
+      <!-- KAD SOALAN -->
+      <div id="question-box" class="question-box">
+        <h3>SOALAN <span id="q-num">1</span></h3>
+        <p id="q-text">Teks soalan akan dipaparkan di sini...</p>
+      </div>
+
+      <!-- KAD JAWAPAN -->
+      <div id="answers-box" class="answers-container interactive">
+        <!-- Generasi Dinamik -->
+      </div>
+
+      <!-- FOOTER -->
+      <footer class="interactive">
+        <div id="instruction-note" class="instruction-text">
+          💡 Halo sasaran dengan jari telunjuk & cubit ibu jari untuk menembak, atau sentuh terus kad jawapan.
+        </div>
+        <div class="mode-toggle-group">
+          <button id="btn-mode-camera" class="btn-mode active">MOD KAMERA</button>
+          <button id="btn-mode-touch" class="btn-mode">MOD SENTUH</button>
+        </div>
+      </footer>
+    </div>
+
+    <!-- SKRIN PEMBUKAAN -->
+    <div id="modal-start" class="modal-overlay interactive">
+      <div class="modal-card">
+        <h2>KHAIRUL AMIR<br><span style="color:#00f0ff">USAHAWAN HEBAT</span></h2>
+        <p style="color: var(--neon-yellow); font-weight: bold;">🎯 MISI AR & SENTUH</p>
+        <p>Pilih mod pilihan anda: Gunakan pengesanan tangan AR kamera iPad atau sentuh terus kad jawapan untuk menembak!</p>
+        <button id="btn-start" class="btn-action">MULA MISI</button>
+      </div>
+    </div>
+
+    <!-- PANEL SEMAK JAWAPAN SEBENAR -->
+    <div id="modal-feedback" class="modal-overlay interactive hidden">
+      <div class="modal-card">
+        <h2 id="feedback-title">JAWAPAN SEBENAR</h2>
+        <p id="feedback-status" style="font-size: 1.3rem; font-weight: bold;"></p>
+        <div style="background: rgba(0,240,255,0.1); border: 1px solid var(--primary-blue); padding: 14px; border-radius: 12px; margin-bottom: 18px;">
+          <p id="feedback-correct-text" style="color: var(--neon-yellow); margin: 0;"></p>
+        </div>
+        <div id="feedback-actions">
+          <button id="btn-retry" class="btn-action hidden" style="background: linear-gradient(135deg, #ff2a4b, #ff7700);">CUBA LAGI</button>
+          <button id="btn-next" class="btn-action">SOALAN SETERUSNYA</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SKRIN PENUTUP -->
+    <div id="modal-end" class="modal-overlay interactive hidden">
+      <div class="modal-card">
+        <h2>🏆 MISI SELESAI! 🏆</h2>
+        <p style="color: var(--neon-yellow); font-weight: bold;">"Tahniah, detektif usahawan! Kamu berjaya menyelesaikan semua misi Khairul Amir!"</p>
+        <div style="font-size: 1.3rem; margin: 15px 0; color: #fff;">
+          <p>Mata Keseluruhan: <span id="final-score" style="color:var(--neon-yellow)">0</span></p>
+          <p>Syiling Emas: 🪙 <span id="final-coins" style="color:var(--neon-yellow)">0</span></p>
+          <p>Jawapan Betul: <span id="final-correct" style="color:var(--primary-blue)">0</span>/6</p>
+        </div>
+        <div>
+          <button id="btn-restart" class="btn-action">MAIN SEMULA</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ==================================================
+       SET SOALAN PDP BAHASA MELAYU (KEMASKINI)
+       ================================================== */
+    const QUESTIONS = [
+      {
+        q: "Siapakah nama dan apakah kerjaya usahawan ini?",
+        options: [
+          { text: "Khairul Amir, seorang guru yang mereka bentuk peralatan dapur futuristik.", status: "SALAH" },
+          { text: "Khairul Amir, seorang pencipta kandungan dan usahawan makanan.", status: "BETUL" },
+          { text: "Khairul Amir, seorang pencipta kandungan yang menjual pelbagai jenis pakaian.", status: "HAMPIR TEPAT" }
+        ],
+        realAnswer: "Khairul Amir ialah seorang pencipta kandungan dan usahawan makanan."
+      },
+      {
+        q: "Apakah produk yang dihasilkan oleh Khairul Amir dan apakah nama yang tertera pada label produk tersebut?",
+        options: [
+          { text: "Sambal yang berlabel “Sos Sambal Malaysia”.", status: "HAMPIR TEPAT" },
+          { text: "Sambal yang berlabel “Sambal Malaysia”.", status: "BETUL" },
+          { text: "Sos tomato yang berlabel “Sambal Malaysia”.", status: "SALAH" }
+        ],
+        realAnswer: "Khairul Amir menghasilkan produk sambal yang berlabel Sambal Malaysia."
+      },
+      {
+        q: "Apakah cabaran yang dihadapi oleh usahawan apabila produknya semakin dikenali?",
+        options: [
+          { text: "Tempahan semakin meningkat dan lebih banyak pesanan perlu diuruskan.", status: "BETUL" },
+          { text: "Perniagaan semakin berkembang dan persaingan pasaran semakin sengit.", status: "HAMPIR TEPAT" },
+          { text: "Pelanggan bertambah tetapi bahan mentah sambal sukar didapati di pasaran.", status: "SALAH" }
+        ],
+        realAnswer: "Cabaran yang dihadapi ialah tempahan semakin meningkat dan lebih banyak pesanan perlu diuruskan."
+      },
+      {
+        q: "Apakah tindakan yang dilakukan untuk memenuhi permintaan pelanggan?",
+        options: [
+          { text: "Meningkatkan pengeluaran produk sambal untuk memenuhi semua permintaan.", status: "HAMPIR TEPAT" },
+          { text: "Mengurangkan tempahan harian supaya kualiti sambal dapat dijaga.", status: "SALAH" },
+          { text: "Meningkatkan pengeluaran dan menguruskan tempahan dengan lebih teratur.", status: "BETUL" }
+        ],
+        realAnswer: "Khairul Amir meningkatkan pengeluaran dan menguruskan tempahan dengan lebih teratur."
+      },
+      {
+        q: "Apakah ciri yang perlu ada pada seorang usahawan?",
+        options: [
+          { text: "Berani mencuba, tidak mudah berputus asa dan sentiasa berusaha untuk maju.", status: "BETUL" },
+          { text: "Rajin berusaha, berani mencuba tetapi cepat gundah apabila menghadapi masalah.", status: "HAMPIR TEPAT" },
+          { text: "Bijak merancang strategi perniagaan tetapi suka bergantung pada bantuan orang lain.", status: "SALAH" }
+        ],
+        realAnswer: "Seorang usahawan perlu berani mencuba, tidak mudah berputus asa dan sentiasa berusaha untuk maju."
+      },
+      {
+        q: "Apakah pencapaian yang telah dicapai oleh usahawan?",
+        options: [
+          { text: "Perniagaannya dikenali di seluruh dunia selepas setahun beroperasi.", status: "SALAH" },
+          { text: "Perniagaannya terus berkembang dan semakin dikenali oleh pelanggan di seluruh Malaysia.", status: "BETUL" },
+          { text: "Perniagaannya semakin berkembang dan mendapat pujian daripada rakan-rakan terdekat.", status: "HAMPIR TEPAT" }
+        ],
+        realAnswer: "Perniagaan Khairul Amir terus berkembang dan semakin dikenali oleh pelanggan di seluruh Malaysia."
+      }
+    ];
+
+    /* ==================================================
+       BAHAGIAN 9: WEB AUDIO API SYNTHESIZER
+       ================================================== */
+    class SoundFX {
+      constructor() {
+        this.ctx = null;
+        this.musicOn = true;
+        this.sfxOn = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+
+      playShoot() {
+        if (!this.sfxOn || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(850, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      }
+
+      playExplosion() {
+        if (!this.sfxOn || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.35);
+      }
+
+      playWin() {
+        if (!this.sfxOn || !this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.08);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.08 + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.08);
+          osc.stop(this.ctx.currentTime + idx * 0.08 + 0.2);
+        });
+      }
+
+      playWrong() {
+        if (!this.sfxOn || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(130, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+      }
+    }
+
+    const audio = new SoundFX();
+
+    /* ==================================================
+       STATE UTAMA PERMAINAN
+       ================================================== */
+    let currentQIndex = 0;
+    let score = 0;
+    let coins = 0;
+    let correctCount = 0;
+    let currentShuffledOptions = [];
+    let isAimingLocked = false;
+    let hoveredCardIndex = -1;
+    let isTriggerPressed = false;
+    let currentMode = 'CAMERA'; 
+    let cameraStarted = false;
+    let cameraInstance = null;
+
+    let smoothX = 0;
+    let smoothY = 0;
+
+    const videoElement = document.getElementById('webcam');
+    const handStatus = document.getElementById('hand-status');
+    const reticle = document.getElementById('aim-reticle');
+    const laserBeam = document.getElementById('laser-beam');
+    const answersBox = document.getElementById('answers-box');
+
+    /* ANIMASI LATAR BELAKANG */
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      pCanvas.width = window.innerWidth;
+      pCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * pCanvas.width;
+        this.y = Math.random() * pCanvas.height;
+        this.type = Math.random() > 0.7 ? 'COIN' : (Math.random() > 0.85 ? 'CHILI' : 'DOT');
+        this.size = this.type === 'DOT' ? (Math.random() * 3 + 1) : (Math.random() * 12 + 10);
+        this.speedY = Math.random() * 0.8 + 0.3;
+        this.color = Math.random() > 0.5 ? '#00f0ff' : '#ffee00';
+      }
+      update() {
+        this.y -= this.speedY;
+        if (this.y < 0) this.reset();
+      }
+      draw() {
+        if (this.type === 'DOT') {
+          pCtx.fillStyle = this.color;
+          pCtx.beginPath();
+          pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          pCtx.fill();
+        } else if (this.type === 'COIN') {
+          pCtx.fillStyle = '#ffee00';
+          pCtx.beginPath();
+          pCtx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+          pCtx.fill();
+          pCtx.strokeStyle = '#ffa500';
+          pCtx.stroke();
+        } else {
+          pCtx.fillStyle = '#ff2a4b';
+          pCtx.beginPath();
+          pCtx.ellipse(this.x, this.y, this.size / 3, this.size / 1.5, Math.PI / 4, 0, Math.PI * 2);
+          pCtx.fill();
+        }
+      }
+    }
+
+    for (let i = 0; i < 40; i++) particles.push(new Particle());
+
+    function animateParticles() {
+      pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+      particles.forEach(p => { p.update(); p.draw(); });
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    /* ==================================================
+       PENYUSUNAN SOALAN & ACAKAN JAWAPAN
+       ================================================== */
+    function loadQuestion(index) {
+      isAimingLocked = false;
+      hoveredCardIndex = -1;
+
+      const qData = QUESTIONS[index];
+      document.getElementById('q-num').innerText = index + 1;
+      document.getElementById('q-text').innerText = qData.q;
